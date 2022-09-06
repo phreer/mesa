@@ -2160,7 +2160,9 @@ genX(compute_pipeline_emit)(struct anv_compute_pipeline *pipeline)
       /* We add 1 because the CS indirect parameters buffer isn't accounted
        * for in bind_map.surface_count.
        */
-      .BindingTableEntryCount = 1 + MIN2(cs_bin->bind_map.surface_count, 30),
+      .BindingTableEntryCount = cs_bin->bind_map.surface_count < 31 ?
+         1 + cs_bin->bind_map.surface_count :
+         0,
       .BarrierEnable          = cs_prog_data->uses_barrier,
       .SharedLocalMemorySize  =
          encode_slm_size(GFX_VER, cs_prog_data->base.total_shared),
