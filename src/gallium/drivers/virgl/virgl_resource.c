@@ -737,9 +737,34 @@ static struct pipe_resource *virgl_resource_from_handle(struct pipe_screen *scre
 
    virgl_resource_layout(&res->b, &res->metadata, plane, winsys_stride,
                          plane_offset, modifier);
+
    if (!res->hw_res) {
       FREE(res);
       return NULL;
+   }
+
+   /* We cannot create a pipe_resource for the imported buffer from external
+    * device in the PRIME_FD_TO_HANDLE call, because we lacked proper
+    * information at that time.
+    */
+   if (res->blob_mem == VIRGL_BLOB_MEM_PRIME) {
+      bool ret;
+      ret = vs->vws->pipe_resource_create_for_prime(vs->vws,
+                                                    templ->target,
+                                                    templ->format,
+                                                    templ->bind,
+                                                    templ->width0,
+                                                    templ->height0,
+                                                    templ->depth0,
+                                                    templ->array_size,
+                                                    templ->last_level,
+                                                    templ->nr_samples,
+                                                    templ->flags,
+                                                    res->hw_res);
+      if (!ret) {
+         FREE(res);
+         return NULL;
+      }
    }
 
    /*

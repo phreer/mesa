@@ -2,4 +2,8 @@
 *.pyc
 *.pyo
 *.out
-/build
+./build
+./builddir
+compile_commands.json
+.cache
+
