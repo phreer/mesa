@@ -89,6 +89,20 @@ struct virgl_winsys {
                                                        uint32_t *plane_offset,
                                                        uint64_t *modifier,
                                                        uint32_t *blob_mem);
+
+   boolean (*pipe_resource_create_for_prime)(struct virgl_winsys *qws,
+                                             enum pipe_texture_target target,
+                                             uint32_t format,
+                                             uint32_t bind,
+                                             uint32_t width,
+                                             uint32_t height,
+                                             uint32_t depth,
+                                             uint32_t array_size,
+                                             uint32_t last_level,
+                                             uint32_t nr_samples,
+                                             uint32_t flags,
+                                             struct virgl_hw_res *hw_res);
+
    void (*resource_set_type)(struct virgl_winsys *vws,
                              struct virgl_hw_res *res,
                              uint32_t format, uint32_t bind,
