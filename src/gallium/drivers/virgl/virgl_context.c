@@ -215,8 +215,11 @@ static void virgl_attach_res_sampler_views(struct virgl_context *vctx,
             box.x = 0;
             box.y = 0;
             box.z = 0;
-            int stride = res->metadata.stride[0];
-            vws->transfer_put(vws, res->hw_res, &box, stride, 0, 0, 0);
+            uint32_t level = 0;
+            uint32_t stride = res->metadata.stride[level];
+            uint32_t offset = res->metadata.level_offset[level];
+            uint32_t layer_stride = res->metadata.layer_stride[level];
+            vws->transfer_put(vws, res->hw_res, &box, stride, layer_stride, offset, level);
          }
       }
    }
