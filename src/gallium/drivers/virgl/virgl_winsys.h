@@ -101,6 +101,8 @@ struct virgl_winsys {
                                              uint32_t last_level,
                                              uint32_t nr_samples,
                                              uint32_t flags,
+                                             uint32_t stride,
+                                             uint32_t offset,
                                              struct virgl_hw_res *hw_res);
 
    void (*resource_set_type)(struct virgl_winsys *vws,

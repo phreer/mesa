@@ -335,6 +335,10 @@ virgl_drm_winsys_resource_create(struct virgl_winsys *qws,
 static inline bool use_explicit_stride(struct virgl_hw_res *res, uint32_t level,
 				       uint32_t depth)
 {
+   if (res->blob_mem == VIRTGPU_BLOB_MEM_PRIME) {
+      return true;
+   }
+
    return (params[param_resource_blob].value &&
            res->blob_mem == VIRTGPU_BLOB_MEM_HOST3D_GUEST &&
            res->target == PIPE_TEXTURE_2D &&
@@ -471,13 +475,15 @@ virgl_drm_winsys_pipe_resource_create_for_prime(struct virgl_winsys *qws,
                                                 uint32_t last_level,
                                                 uint32_t nr_samples,
                                                 uint32_t flags,
+                                                uint32_t stride,
+                                                uint32_t offset,
                                                 struct virgl_hw_res *hw_res)
 {
-   printf("%s(): res_handle = %u", __func__, hw_res->res_handle);
    struct virgl_drm_winsys *qdws = virgl_drm_winsys(qws);
    uint32_t cmd[VIRGL_PIPE_RES_CREATE_SIZE + 1] = { 0 };
    struct drm_virtgpu_execbuffer eb;
    int32_t blob_id;
+   struct pipe_box box;
    int ret;
 
    blob_id = p_atomic_inc_return(&qdws->blob_id);
@@ -503,6 +509,19 @@ virgl_drm_winsys_pipe_resource_create_for_prime(struct virgl_winsys *qws,
    ret = drmIoctl(qdws->fd, DRM_IOCTL_VIRTGPU_EXECBUFFER, &eb);
    if (ret == -1) {
       _debug_printf("failed to create pipe_resource for PRIME object: %s",
+                    strerror(errno));
+      return false;
+   }
+
+   box.x = 0;
+   box.y = 0;
+   box.z = 0;
+   box.width = width;
+   box.height = height;
+   box.depth = depth;
+   ret = virgl_bo_transfer_put(qws, hw_res, &box, stride, 0, offset, 0);
+   if (ret == -1) {
+      _debug_printf("failed to transfer data to host: %s",
                     strerror(errno));
       return false;
    }
@@ -816,6 +835,10 @@ static void virgl_drm_add_res(struct virgl_drm_winsys *qdws,
 {
    unsigned hash = res->res_handle & (sizeof(cbuf->is_handle_added)-1);
 
+   if (res->blob_mem == VIRTGPU_BLOB_MEM_PRIME) {
+      printf("%s(): PRIME resource found, res_id = %u\n",
+             __func__, res->bo_handle);
+   }
    if (cbuf->cres >= cbuf->nres) {
       unsigned new_nres = cbuf->nres + 256;
       void *new_ptr = REALLOC(cbuf->res_bo,
@@ -1001,6 +1024,16 @@ static int virgl_drm_winsys_submit_cmd(struct virgl_winsys *qws,
    eb.size = cbuf->base.cdw * 4;
    eb.num_bo_handles = cbuf->cres;
    eb.bo_handles = (unsigned long)(void *)cbuf->res_hlist;
+
+   struct virgl_hw_res *hw_res;
+   int i = 0;
+   for (i = 0; i < eb.num_bo_handles; ++i) {
+      hw_res = cbuf->res_bo[i];
+      if (hw_res->blob_mem == VIRTGPU_BLOB_MEM_PRIME) {
+         printf("%s(): PRIME resource found, res_id = %u\n",
+                __func__, hw_res->bo_handle);
+      }
+   }
 
    eb.fence_fd = -1;
    if (qws->supports_fences) {

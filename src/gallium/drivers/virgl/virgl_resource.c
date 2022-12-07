@@ -148,6 +148,9 @@ static bool virgl_res_needs_readback(struct virgl_context *vctx,
    if (res->clean_mask & (1 << level))
       return false;
 
+   if (res->blob_mem == VIRGL_BLOB_MEM_PRIME)
+      return false;
+
    return true;
 }
 
@@ -739,23 +742,25 @@ static struct pipe_resource *virgl_resource_from_handle(struct pipe_screen *scre
       return NULL;
    }
 
-      /* We cannot create a pipe_resource for the imported buffer from external
+   /* We cannot create a pipe_resource for the imported buffer from external
     * device in the PRIME_FD_TO_HANDLE call, because we lacked proper
     * information at that time.
     */
    if (res->blob_mem == VIRGL_BLOB_MEM_PRIME) {
       bool ret;
       ret = vs->vws->pipe_resource_create_for_prime(vs->vws,
-                                                    templ->target,
-                                                    templ->format,
-                                                    templ->bind,
-                                                    templ->width0,
-                                                    templ->height0,
-                                                    templ->depth0,
-                                                    templ->array_size,
-                                                    templ->last_level,
-                                                    templ->nr_samples,
-                                                    templ->flags,
+                                                    res->b.target,
+                                                    pipe_to_virgl_format(res->b.format),
+                                                    res->b.bind,
+                                                    res->b.width0,
+                                                    res->b.height0,
+                                                    res->b.depth0,
+                                                    res->b.array_size,
+                                                    res->b.last_level,
+                                                    res->b.nr_samples,
+                                                    res->b.flags,
+                                                    res->metadata.stride[0],
+                                                    res->metadata.plane_offset,
                                                     res->hw_res);
       if (!ret) {
          FREE(res);
@@ -804,6 +809,7 @@ static struct pipe_resource *virgl_resource_from_handle(struct pipe_screen *scre
                                  plane_count,
                                  plane_strides,
                                  plane_offsets);
+
    }
 
    virgl_texture_init(res);

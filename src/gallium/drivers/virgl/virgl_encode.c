@@ -1520,6 +1520,9 @@ void virgl_encode_transfer(struct virgl_screen *vs, struct virgl_cmd_buf *buf,
        vres->blob_mem == VIRGL_BLOB_MEM_HOST3D_GUEST)
       stride_type = virgl_transfer3d_explicit_stride;
 
+   if (vres->blob_mem == VIRGL_BLOB_MEM_PRIME)
+      stride_type = virgl_transfer3d_explicit_stride;
+
    command = VIRGL_CMD0(VIRGL_CCMD_TRANSFER3D, 0, VIRGL_TRANSFER3D_SIZE);
    virgl_encoder_write_dword(buf, command);
    virgl_encoder_transfer3d_common(vs, buf, trans, stride_type);

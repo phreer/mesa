@@ -207,6 +207,17 @@ static void virgl_attach_res_sampler_views(struct virgl_context *vctx,
       if (binding->views[i] && binding->views[i]->texture) {
          struct virgl_resource *res = virgl_resource(binding->views[i]->texture);
          vws->emit_res(vws, vctx->cbuf, res->hw_res, FALSE);
+         if (res->blob_mem == VIRGL_BLOB_MEM_PRIME) {
+            struct pipe_box box;
+            box.width = res->b.width0;
+            box.height = res->b.height0;
+            box.depth = res->b.depth0;
+            box.x = 0;
+            box.y = 0;
+            box.z = 0;
+            int stride = res->metadata.stride[0];
+            vws->transfer_put(vws, res->hw_res, &box, stride, 0, 0, 0);
+         }
       }
    }
 }
