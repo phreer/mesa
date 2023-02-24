@@ -335,6 +335,10 @@ virgl_drm_winsys_resource_create(struct virgl_winsys *qws,
 static inline bool use_explicit_stride(struct virgl_hw_res *res, uint32_t level,
 				       uint32_t depth)
 {
+   if (res->blob_mem == VIRTGPU_BLOB_MEM_PRIME) {
+      return true;
+   }
+
    return (params[param_resource_blob].value &&
            res->blob_mem == VIRTGPU_BLOB_MEM_HOST3D_GUEST &&
            res->target == PIPE_TEXTURE_2D &&
@@ -573,6 +577,56 @@ virgl_drm_winsys_resource_create_handle(struct virgl_winsys *qws,
 done:
    mtx_unlock(&qdws->bo_handles_mutex);
    return res;
+}
+
+static boolean
+virgl_drm_winsys_pipe_resource_create_for_prime(struct virgl_winsys *qws,
+                                                enum pipe_texture_target target,
+                                                uint32_t format,
+                                                uint32_t bind,
+                                                uint32_t width,
+                                                uint32_t height,
+                                                uint32_t depth,
+                                                uint32_t array_size,
+                                                uint32_t last_level,
+                                                uint32_t nr_samples,
+                                                uint32_t flags,
+                                                struct virgl_hw_res *hw_res)
+{
+   struct virgl_drm_winsys *qdws = virgl_drm_winsys(qws);
+   uint32_t cmd[VIRGL_PIPE_RES_CREATE_SIZE + 1] = { 0 };
+   struct drm_virtgpu_execbuffer eb;
+   int32_t blob_id;
+   int ret;
+
+   blob_id = p_atomic_inc_return(&qdws->blob_id);
+   cmd[0] = VIRGL_CMD0(VIRGL_CCMD_PIPE_RESOURCE_CREATE, 0, VIRGL_PIPE_RES_CREATE_SIZE);
+   cmd[VIRGL_PIPE_RES_CREATE_FORMAT] = format;
+   cmd[VIRGL_PIPE_RES_CREATE_BIND] = bind;
+   cmd[VIRGL_PIPE_RES_CREATE_TARGET] = target;
+   cmd[VIRGL_PIPE_RES_CREATE_WIDTH] = width;
+   cmd[VIRGL_PIPE_RES_CREATE_HEIGHT] = height;
+   cmd[VIRGL_PIPE_RES_CREATE_DEPTH] = depth;
+   cmd[VIRGL_PIPE_RES_CREATE_ARRAY_SIZE] = array_size;
+   cmd[VIRGL_PIPE_RES_CREATE_LAST_LEVEL] = last_level;
+   cmd[VIRGL_PIPE_RES_CREATE_NR_SAMPLES] = nr_samples;
+   cmd[VIRGL_PIPE_RES_CREATE_FLAGS] = flags;
+   cmd[VIRGL_PIPE_RES_CREATE_BLOB_ID] = blob_id;
+   cmd[VIRGL_PIPE_RES_CREATE_RES_HANDLE] = hw_res->res_handle;
+
+   memset(&eb, 0, sizeof(eb));
+   eb.command = (__u64) cmd;
+   eb.size = (VIRGL_PIPE_RES_CREATE_SIZE + 1) * 4;
+   eb.num_bo_handles = 1;
+   eb.bo_handles = (__u64) &hw_res->bo_handle;
+   ret = drmIoctl(qdws->fd, DRM_IOCTL_VIRTGPU_EXECBUFFER, &eb);
+   if (ret == -1) {
+      _debug_printf("failed to create pipe_resource for PRIME object: %s",
+                    strerror(errno));
+      return false;
+   }
+
+   return true;
 }
 
 static void
@@ -1255,6 +1309,7 @@ virgl_drm_winsys_create(int drmFD)
    qdws->base.resource_create = virgl_drm_winsys_resource_cache_create;
    qdws->base.resource_reference = virgl_drm_resource_reference;
    qdws->base.resource_create_from_handle = virgl_drm_winsys_resource_create_handle;
+   qdws->base.pipe_resource_create_for_prime = virgl_drm_winsys_pipe_resource_create_for_prime;
    qdws->base.resource_set_type = virgl_drm_winsys_resource_set_type;
    qdws->base.resource_get_handle = virgl_drm_winsys_resource_get_handle;
    qdws->base.resource_get_storage_size = virgl_drm_winsys_resource_get_storage_size;

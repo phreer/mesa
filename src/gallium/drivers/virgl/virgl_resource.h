@@ -36,6 +36,7 @@
 #define VIRGL_BLOB_MEM_GUEST 1
 #define VIRGL_BLOB_MEM_HOST3D 2
 #define VIRGL_BLOB_MEM_HOST3D_GUEST 3
+#define VIRGL_BLOB_MEM_PRIME 5
 
 struct winsys_handle;
 struct virgl_screen;

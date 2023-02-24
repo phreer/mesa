@@ -83,6 +83,9 @@ static inline void virgl_encoder_write_block(struct virgl_cmd_buf *state,
    state->cdw += (len + 3) / 4;
 }
 
+extern void virgl_sync_prime_buffer(struct virgl_winsys *vws,
+                                    struct virgl_resource *res);
+
 extern int virgl_encode_blend_state(struct virgl_context *ctx,
                                    uint32_t handle,
                                    const struct pipe_blend_state *blend_state);

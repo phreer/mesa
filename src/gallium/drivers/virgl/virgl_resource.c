@@ -149,6 +149,9 @@ static bool virgl_res_needs_readback(struct virgl_context *vctx,
    if (res->clean_mask & (1 << level))
       return false;
 
+   if (res->blob_mem == VIRGL_BLOB_MEM_PRIME)
+      return false;
+
    return true;
 }
 
@@ -517,6 +520,7 @@ virgl_resource_transfer_map(struct pipe_context *ctx,
    case VIRGL_TRANSFER_MAP_REALLOC:
       if (!virgl_resource_realloc(vctx, vres)) {
          map_addr = NULL;
+         printf("%s(): point 1\n", __func__);
          break;
       }
       vws->resource_reference(vws, &trans->hw_res, vres->hw_res);
@@ -525,8 +529,12 @@ virgl_resource_transfer_map(struct pipe_context *ctx,
       trans->hw_res_map = vws->resource_map(vws, vres->hw_res);
       if (trans->hw_res_map)
          map_addr = trans->hw_res_map + trans->offset;
-      else
+      else {
          map_addr = NULL;
+         printf("%s(): point 2\n", __func__);
+         printf("resource->width = %u, resource->height = %u\n",
+                resource->width0, resource->height0);
+      }
       break;
    case VIRGL_TRANSFER_MAP_WRITE_TO_STAGING:
       map_addr = virgl_staging_map(vctx, trans);
@@ -549,10 +557,12 @@ virgl_resource_transfer_map(struct pipe_context *ctx,
    default:
       trans->hw_res_map = NULL;
       map_addr = NULL;
+      printf("%s(): point 3\n", __func__);
       break;
    }
 
    if (!map_addr) {
+      printf("%s(): failed\n", __func__);
       virgl_resource_destroy_transfer(vctx, trans);
       return NULL;
    }
@@ -755,6 +765,29 @@ static struct pipe_resource *virgl_resource_from_handle(struct pipe_screen *scre
    if (res->metadata.total_size > storage_size)
       res->use_staging = 1;
 
+   /* We cannot create a pipe_resource for the buffer imported from external
+    * device in the PRIME_FD_TO_HANDLE call, because we lacked proper
+    * information at that time.
+    */
+   if (res->blob_mem == VIRGL_BLOB_MEM_PRIME) {
+      bool ret;
+      ret = vs->vws->pipe_resource_create_for_prime(vs->vws,
+                                                    res->b.target,
+                                                    pipe_to_virgl_format(res->b.format),
+                                                    res->b.bind,
+                                                    res->b.width0,
+                                                    res->b.height0,
+                                                    res->b.depth0,
+                                                    res->b.array_size,
+                                                    res->b.last_level,
+                                                    res->b.nr_samples,
+                                                    res->b.flags,
+                                                    res->hw_res);
+      if (!ret) {
+         FREE(res);
+         return NULL;
+      }
+   }
    /* assign blob resource a type in case it was created untyped */
    if (res->blob_mem && plane == 0 &&
        (vs->caps.caps.v2.capability_bits_v2 & VIRGL_CAP_V2_UNTYPED_RESOURCE)) {

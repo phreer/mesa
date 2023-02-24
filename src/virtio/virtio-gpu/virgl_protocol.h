@@ -668,7 +668,7 @@ enum vrend_tweak_type {
 #define VIRGL_TEXTURE_ARRAY_D 12
 
 /* virgl create */
-#define VIRGL_PIPE_RES_CREATE_SIZE 11
+#define VIRGL_PIPE_RES_CREATE_SIZE 12
 #define VIRGL_PIPE_RES_CREATE_TARGET 1
 #define VIRGL_PIPE_RES_CREATE_FORMAT 2
 #define VIRGL_PIPE_RES_CREATE_BIND 3
@@ -680,6 +680,11 @@ enum vrend_tweak_type {
 #define VIRGL_PIPE_RES_CREATE_NR_SAMPLES 9
 #define VIRGL_PIPE_RES_CREATE_FLAGS 10
 #define VIRGL_PIPE_RES_CREATE_BLOB_ID 11
+/* This is for PRIME buffer, allowing us to create a pipe_resource for an
+ * imported buffer and bind the pipe_resource to it. Otherwise, set it to
+ * zero.
+ */
+#define VIRGL_PIPE_RES_CREATE_RES_HANDLE 12
 
 /* VIRGL_CCMD_PIPE_RESOURCE_SET_TYPE */
 #define VIRGL_PIPE_RES_SET_TYPE_SIZE(nplanes) (8 + (nplanes) * 2)

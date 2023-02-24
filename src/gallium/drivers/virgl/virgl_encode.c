@@ -343,13 +343,36 @@ static int virgl_encoder_write_cmd_dword(struct virgl_context *ctx,
    return 0;
 }
 
+void virgl_sync_prime_buffer(struct virgl_winsys *vws, struct virgl_resource *res)
+{
+   struct pipe_box box;
+   if (res->blob_mem == VIRGL_BLOB_MEM_PRIME) {
+      printf("%s(): start\n", __func__);
+      for (int i = 0; i < res->b.last_level; ++i) {
+         box.width = res->b.width0;
+         box.height = res->b.height0;
+         box.depth = res->b.depth0;
+         box.x = 0;
+         box.y = 0;
+         box.z = 0;
+         uint32_t level = i;
+         uint32_t stride = res->metadata.stride[level];
+         uint32_t offset = res->metadata.level_offset[level];
+         uint32_t layer_stride = res->metadata.layer_stride[level];
+         vws->transfer_put(vws, res->hw_res, &box, stride, layer_stride, offset, level);
+      }
+   }
+}
+
 static void virgl_encoder_emit_resource(struct virgl_screen *vs,
                                         struct virgl_cmd_buf *buf,
                                         struct virgl_resource *res)
 {
    struct virgl_winsys *vws = vs->vws;
-   if (res && res->hw_res)
+   if (res && res->hw_res) {
       vws->emit_res(vws, buf, res->hw_res, TRUE);
+      virgl_sync_prime_buffer(vws, res);
+   }
    else {
       virgl_encoder_write_dword(buf, 0);
    }
@@ -1492,9 +1515,10 @@ void virgl_encode_transfer(struct virgl_screen *vs, struct virgl_cmd_buf *buf,
    enum virgl_transfer3d_encode_stride stride_type =
         virgl_transfer3d_host_inferred_stride;
 
-   if (trans->base.box.depth == 1 && trans->base.level == 0 &&
-       trans->base.resource->target == PIPE_TEXTURE_2D &&
-       vres->blob_mem == VIRGL_BLOB_MEM_HOST3D_GUEST)
+   if ((trans->base.box.depth == 1 && trans->base.level == 0 &&
+        trans->base.resource->target == PIPE_TEXTURE_2D &&
+        vres->blob_mem == VIRGL_BLOB_MEM_HOST3D_GUEST)
+      || vres->blob_mem == VIRGL_BLOB_MEM_PRIME)
       stride_type = virgl_transfer3d_explicit_stride;
 
    command = VIRGL_CMD0(VIRGL_CCMD_TRANSFER3D, 0, VIRGL_TRANSFER3D_SIZE);
