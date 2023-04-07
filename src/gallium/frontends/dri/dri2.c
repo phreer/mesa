@@ -2197,6 +2197,7 @@ dri2_init_screen_extensions(struct dri_screen *screen,
 {
    const __DRIextension **nExt;
 
+   printf("dri2_init_screen_extensions\n");
    STATIC_ASSERT(sizeof(screen->screen_extensions) >=
                  sizeof(dri_screen_extensions_base));
    memcpy(&screen->screen_extensions, dri_screen_extensions_base,
